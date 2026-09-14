@@ -69,6 +69,7 @@ public final class AttributeTable {
       return valueType == ValueType.STRING ? (String) value : null;
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings("NP_BOOLEAN_RETURN_NULL")
     public Boolean getBoolValue() {
       return valueType == ValueType.BOOL ? (Boolean) value : null;
     }

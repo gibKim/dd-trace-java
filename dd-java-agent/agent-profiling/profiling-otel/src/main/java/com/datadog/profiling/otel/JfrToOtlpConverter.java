@@ -20,6 +20,7 @@ import com.datadog.profiling.otel.proto.dictionary.StackTable;
 import com.datadog.profiling.otel.proto.dictionary.StringTable;
 import datadog.json.JsonWriter;
 import datadog.trace.api.profiling.RecordingData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.jafar.parser.api.Control;
 import io.jafar.parser.api.ParsingContext;
 import io.jafar.parser.api.TypedJafarParser;
@@ -165,7 +166,8 @@ public final class JfrToOtlpConverter {
   private int[] lockAttrIndices;
 
   // Alloc sample field availability: null = not yet probed, true = size/weight fields exist.
-  private Boolean allocHasSizeWeight;
+  private boolean allocHasSizeWeightInitialized;
+  private boolean allocHasSizeWeight;
 
   // Cached attribute indices per alloc class name, avoiding per-sample int[] allocation.
   private final java.util.Map<String, int[]> allocAttrCache = new java.util.HashMap<>();
@@ -302,7 +304,7 @@ public final class JfrToOtlpConverter {
     cpuAttrIndices = null;
     wallAttrIndices = null;
     lockAttrIndices = null;
-    allocHasSizeWeight = null;
+    allocHasSizeWeightInitialized = false;
     allocAttrCache.clear();
     lastChunk = null;
     chunkIdentityHash = 0;
@@ -410,7 +412,7 @@ public final class JfrToOtlpConverter {
     // to avoid per-sample exception overhead (exception construction allocates stack traces).
     long size;
     float weight;
-    if (allocHasSizeWeight == null) {
+    if (!allocHasSizeWeightInitialized) {
       try {
         size = event.size();
         weight = event.weight();
@@ -418,12 +420,13 @@ public final class JfrToOtlpConverter {
           size = event.allocationSize();
           weight = 1;
         }
-        allocHasSizeWeight = Boolean.TRUE;
+        allocHasSizeWeight = true;
       } catch (Exception e) {
         size = event.allocationSize();
         weight = 1;
-        allocHasSizeWeight = Boolean.FALSE;
+        allocHasSizeWeight = false;
       }
+      allocHasSizeWeightInitialized = true;
     } else if (allocHasSizeWeight) {
       size = event.size();
       weight = event.weight();
@@ -501,6 +504,7 @@ public final class JfrToOtlpConverter {
     return chunkIdentityHash;
   }
 
+  @SuppressFBWarnings("DCN_NULLPOINTER_EXCEPTION")
   private JfrStackTrace safeGetStackTrace(java.util.function.Supplier<JfrStackTrace> supplier) {
     try {
       return supplier.get();

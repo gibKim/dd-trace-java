@@ -5,6 +5,17 @@ plugins {
   id("me.champeau.jmh")
 }
 
+// Tests require Java 17+ (JMC 9.1.1); on JVM 8 (where -PcheckCoverage runs) tests are skipped,
+// so all main classes would have 0% coverage. Exclude them from verification.
+extra["excludedClassesCoverage"] = listOf(
+  "com.datadog.profiling.otel.JfrToOtlpConverter*",
+  "com.datadog.profiling.otel.JfrToOtlpConverterCLI",
+  "com.datadog.profiling.otel.OtlpProfileWriter",
+  "com.datadog.profiling.otel.jfr.*",
+  "com.datadog.profiling.otel.proto.*",
+  "com.datadog.profiling.otel.proto.dictionary.*",
+)
+
 jmh {
   jmhVersion = libs.versions.jmh.get()
 
