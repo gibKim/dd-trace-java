@@ -34,6 +34,10 @@ public abstract class RecordingData implements ProfilingSnapshot {
   private final AtomicInteger refCount = new AtomicInteger(1);
   private volatile boolean released = false;
 
+  // Private lock so the intrinsic lock of this publicly exposed class is not used for
+  // synchronization (SpotBugs USO_UNSAFE_METHOD_SYNCHRONIZATION / CERT LCK00-J).
+  private final Object lock = new Object();
+
   public RecordingData(final Instant start, final Instant end, Kind kind) {
     this.start = start;
     this.end = end;
@@ -59,12 +63,14 @@ public abstract class RecordingData implements ProfilingSnapshot {
    * @throws IllegalStateException if the recording has already been released
    */
   @Nonnull
-  public final synchronized RecordingData retain() {
-    if (released) {
-      throw new IllegalStateException("Cannot retain released RecordingData");
+  public final RecordingData retain() {
+    synchronized (lock) {
+      if (released) {
+        throw new IllegalStateException("Cannot retain released RecordingData");
+      }
+      refCount.incrementAndGet();
+      return this;
     }
-    refCount.incrementAndGet();
-    return this;
   }
 
   /**
@@ -85,7 +91,7 @@ public abstract class RecordingData implements ProfilingSnapshot {
    */
   public final void release() {
     boolean shouldRelease = false;
-    synchronized (this) {
+    synchronized (lock) {
       if (released) {
         return;
       }
