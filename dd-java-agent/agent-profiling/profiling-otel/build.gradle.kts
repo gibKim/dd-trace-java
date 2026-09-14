@@ -110,31 +110,42 @@ tasks.register<Exec>("buildProfcheck") {
   }
 }
 
-// Ensure profcheck image is built before running tests with @Tag("docker")
+// OTLP validation tests (ProfcheckValidationTest, OtlpCollectorValidationTest) are gated behind
+// the -PrunOtlpValidation Gradle property. They require Docker and network access to pull/build
+// images, which is not available in the standard CI test matrix. Enable manually:
+//   ./gradlew :dd-java-agent:agent-profiling:profiling-otel:test -PrunOtlpValidation
 tasks.named<Test>("test") {
-  // Build profcheck image if Docker is available (for ProfcheckValidationTest)
-  doFirst {
-    val dockerAvailable = try {
-      val process = ProcessBuilder("docker", "info").redirectErrorStream(true).start()
-      process.waitFor() == 0
-    } catch (e: Exception) {
-      false
-    }
+  if (project.hasProperty("runOtlpValidation")) {
+    jvmArgs("-Drun.otlp.validation=true")
 
-    if (dockerAvailable) {
-      logger.lifecycle("Building profcheck Docker image for validation tests...")
-      val buildProcess = ProcessBuilder(
-        "docker",
-        "build",
-        "-f",
-        "$rootDir/docker/Dockerfile.profcheck",
-        "-t",
-        "profcheck:latest",
-        rootDir.toString()
-      ).redirectErrorStream(true).start()
-      buildProcess.waitFor()
-    } else {
-      logger.warn("Docker not available, skipping profcheck image build. Tests tagged with 'docker' will be skipped.")
+    // Build profcheck image if Docker is available (for ProfcheckValidationTest)
+    doFirst {
+      val dockerAvailable = try {
+        val process = ProcessBuilder("docker", "info").redirectErrorStream(true).start()
+        process.waitFor() == 0
+      } catch (e: Exception) {
+        false
+      }
+
+      if (dockerAvailable) {
+        logger.lifecycle("Building profcheck Docker image for validation tests...")
+        val buildProcess = ProcessBuilder(
+          "docker",
+          "build",
+          "-f",
+          "$rootDir/docker/Dockerfile.profcheck",
+          "-t",
+          "profcheck:latest",
+          rootDir.toString()
+        ).redirectErrorStream(true).start()
+        val exitCode = buildProcess.waitFor()
+        if (exitCode != 0) {
+          val output = buildProcess.inputStream.bufferedReader().readText()
+          throw org.gradle.api.GradleException("Failed to build profcheck Docker image (exit $exitCode):\n$output")
+        }
+      } else {
+        logger.warn("Docker not available, skipping profcheck image build. Tests tagged with 'docker' will be skipped.")
+      }
     }
   }
 }

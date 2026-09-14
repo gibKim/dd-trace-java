@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
 import org.openjdk.jmc.flightrecorder.writer.api.Recording;
 import org.openjdk.jmc.flightrecorder.writer.api.Recordings;
@@ -50,6 +51,7 @@ import org.testcontainers.utility.MountableFile;
  */
 @Testcontainers
 @Tag("docker")
+@EnabledIfSystemProperty(named = "run.otlp.validation", matches = "true")
 public class ProfcheckValidationTest {
 
   // Profcheck container built from Dockerfile.profcheck
